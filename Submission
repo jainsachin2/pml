@@ -1,0 +1,79 @@
+setwd("D:/Sachin/PML")
+
+# First of all we need to load the required libraries
+
+library(caret) 
+library(ggplot2) 
+library(randomForest)
+
+# Data Import
+
+trainData <- read.csv("pml-training.csv", head=TRUE, sep=",", na.strings=c("NA","#DIV/0!","")) 
+testData <- read.csv("pml-testing.csv", head=TRUE, sep=",", na.strings=c("NA","#DIV/0!",""))
+
+# Blank values and #DIV/0! replaced by NA
+
+#Check dimensions 
+dim(trainData)
+dim(testData)
+
+# missing value treatment
+NApctTrain <- sapply(trainData, function(df) {sum(is.na(df)==TRUE)/length(df)})
+NApctTest <- sapply(testData, function(df) {sum(is.na(df)==TRUE)/length(df)})
+table(NApctTrain > .97)
+table(NApctTest > .97)
+
+#Removing the variables with high number of missing values
+names1 <- names(which(NApctTrain < 0.97))
+trainingData <- trainData[, names1]
+names2 <- names(which(NApctTest < 0.97))
+testingData <- testData[, names2]
+
+#Testing
+sum(is.na(trainingData) == TRUE)
+sum(is.na(testingData) == TRUE)
+
+# Removing zero covariates
+nsv1 <- nearZeroVar(trainingData,saveMetrics=TRUE)
+nsv2 <- nearZeroVar(testingData,saveMetrics=TRUE)
+CleanTrainData <- trainingData[,which(nsv1$nzv==FALSE)]
+CleanTestData <- testingData[,which(nsv2$nzv==FALSE)]
+
+
+# Removing non-measurement data
+RemoveInx1 <- grepl("X|timestamp|user_name", names(CleanTrainData))
+CleanTrainData <- CleanTrainData[, which(RemoveInx1 ==FALSE)]
+
+RemoveInx2 <- grepl("X|timestamp|user_name|problem_id", names(CleanTestData))
+CleanTestData <- CleanTestData[, which(RemoveInx2 ==FALSE)]
+
+# Data splitting for resampling
+set.seed(24322)
+inTrain <- createDataPartition (CleanTrainData$classe, p=0.7, list=FALSE)
+training <- CleanTrainData [inTrain ,]
+testing <- CleanTrainData [- inTrain,]
+
+# Random Forest with Cross Validation
+
+ctrl <- trainControl(method = "cv", number=10)
+
+rf_fit <- train(classe ~ .,
+                data = training,
+                method = "rf",  
+                trControl = ctrl,
+                allowParallel=TRUE,
+                ntree=200)
+
+print(rf_fit)
+
+plot(rf_fit$finalModel)
+
+print(plot(varImp(rf_fit)))
+
+# Model Evaluation
+pre_rf <- predict(rf_fit, newdata = testing)
+confusionMatrix(data = pre_rf, testing$classe)
+
+#
+finalResult <- predict(rf_fit, CleanTestData)
+finalResult
