@@ -74,6 +74,8 @@ print(plot(varImp(rf_fit)))
 pre_rf <- predict(rf_fit, newdata = testing)
 confusionMatrix(data = pre_rf, testing$classe)
 
+#Expected out of sample error rate is < 0.05%
+
 #
 finalResult <- predict(rf_fit, CleanTestData)
 finalResult
